@@ -1,0 +1,20 @@
+\begin{table*}[t]
+\centering
+\caption{Paired significance of mHC ($L{=}4$) vs.\ SOTA on \textbf{test} MSE (five matched seeds). Negative diff favors mHC.}
+\label{tab:sotasig}
+\footnotesize
+\begin{tabular}{llrrc}
+\toprule
+Dataset & vs.\ & $\Delta$MSE & Cohen's $d$ & $p$ \\
+\midrule
+Weather & PatchTST & -4.23 & -3.52 & 0.001$^{*}$ \\
+Weather & iTransformer & -6.79 & -2.30 & 0.007$^{*}$ \\
+Weather & TimesNet & -4.56 & -1.36 & 0.038$^{*}$ \\
+ETTh1 & PatchTST & +1.41 & 2.54 & 0.005$^{*}$ \\
+ETTh1 & iTransformer & -0.82 & -1.76 & 0.017$^{*}$ \\
+ETTh1 & TimesNet & +0.52 & 0.48 & 0.348 \\
+\bottomrule
+\end{tabular}
+\\[2pt]
+\footnotesize $^{*}$ significant at $p<0.05$.
+\end{table*}

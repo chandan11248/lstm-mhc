@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\centering
+\caption{Compute efficiency (weather). Params and FLOPs measured on a $1{\times}724{\times}4$ input; peak VRAM and train time from training logs; inference latency on CPU (batch=32, 100 runs, mean). mHC is parameter- and FLOP-matched to the standard LSTM, at higher activation memory and CPU latency from the $n$-stream expansion.}
+\label{tab:efficiency}
+\footnotesize
+\begin{tabular}{llrrrrr}
+\toprule
+Model & $L$ & Params & GFLOPs & VRAM (MB) & Train/epoch (s) & Latency (ms) \\
+\midrule
+mHC-LSTM (ours) & 4 & 592,512 & 0.845 & 1539 & 182.8 & 1539.3 \\
+Standard LSTM & 4 & 590,420 & 0.857 & 636 & 296.3 & 507.8 \\
+HC-LSTM & 4 & 592,512 & 0.845 & 1249 & 149.3 & 1349.9 \\
+GRU & 4 & 351,252 & 0.510 & -- & -- & 470.7 \\
+TCN & 4 & 153,108 & 0.216 & -- & -- & 131.6 \\
+PatchTST & 4 & 446,725 & 0.098 & -- & -- & 106.8 \\
+iTransformer & 4 & 490,885 & 0.002 & -- & -- & 3.4 \\
+TimesNet & 4 & 4,738,157 & 13.572 & -- & -- & 5457.9 \\
+DLinear & 4 & 7,250 & 0.000 & -- & -- & 2.0 \\
+NLinear & 4 & 3,625 & 0.000 & -- & -- & 0.3 \\
+\bottomrule
+\end{tabular}
+\end{table*}

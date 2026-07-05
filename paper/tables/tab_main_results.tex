@@ -1,0 +1,52 @@
+\begin{table*}[t]
+\centering
+\caption{Held-out \textbf{test}-set forecasting error (original units, mean$\pm$std over seeds). Lower is better. HC diverges (NaN) at $L{=}16$; vanilla collapses at $L{\geq}16$.}
+\label{tab:main}
+\footnotesize
+\begin{tabular}{llrrrc}
+\toprule
+Dataset & Model & $L$ & Test MSE & Test MAE & $n$ \\
+\midrule
+Weather & mHC-LSTM (ours) & 4 & 91.69\,$\pm$\,1.41 & 5.729\,$\pm$\,0.043 & 5 \\
+Weather & Standard LSTM & 4 & 92.63\,$\pm$\,1.01 & 5.823\,$\pm$\,0.037 & 5 \\
+Weather & HC-LSTM & 4 & 101.81\,$\pm$\,4.86 & 6.012\,$\pm$\,0.119 & 5 \\
+Weather & GRU & 4 & 87.71\,$\pm$\,0.83 & 5.609\,$\pm$\,0.035 & 5 \\
+Weather & TCN & 4 & 90.68\,$\pm$\,1.13 & 5.722\,$\pm$\,0.042 & 5 \\
+Weather & Ridge & 4 & 88.87\,$\pm$\,1.21 & 5.644\,$\pm$\,0.053 & 5 \\
+Weather & DLinear & 4 & 98.22\,$\pm$\,1.03 & 6.056\,$\pm$\,0.054 & 4 \\
+Weather & NLinear & 4 & 96.69\,$\pm$\,0.74 & 5.939\,$\pm$\,0.013 & 5 \\
+Weather & mHC-LSTM (ours) & 8 & 94.29\,$\pm$\,0.85 & 5.820\,$\pm$\,0.025 & 5 \\
+Weather & Standard LSTM & 8 & 93.12\,$\pm$\,2.30 & 5.883\,$\pm$\,0.087 & 5 \\
+Weather & HC-LSTM & 8 & 94.00\,$\pm$\,2.71 & 5.795\,$\pm$\,0.094 & 5 \\
+Weather & GRU & 8 & 88.99\,$\pm$\,1.19 & 5.672\,$\pm$\,0.066 & 5 \\
+Weather & TCN & 8 & 94.29\,$\pm$\,0.98 & 5.909\,$\pm$\,0.044 & 5 \\
+Weather & mHC-LSTM (ours) & 16 & 95.37\,$\pm$\,1.39 & 5.863\,$\pm$\,0.040 & 5 \\
+Weather & Standard LSTM & 16 & 204.38\,$\pm$\,0.29 & 9.671\,$\pm$\,0.005 & 5 \\
+Weather & GRU & 16 & 94.53\,$\pm$\,3.04 & 5.895\,$\pm$\,0.108 & 5 \\
+Weather & TCN & 16 & 257.63\,$\pm$\,9.31 & 10.583\,$\pm$\,0.156 & 4 \\
+Weather & mHC-LSTM (ours) & 32 & 95.89\,$\pm$\,2.44 & 5.878\,$\pm$\,0.061 & 5 \\
+Weather & Standard LSTM & 32 & 204.55\,$\pm$\,0.39 & 9.672\,$\pm$\,0.009 & 3 \\
+\midrule
+ETTh1 & mHC-LSTM (ours) & 4 & 9.92\,$\pm$\,0.26 & 1.952\,$\pm$\,0.046 & 5 \\
+ETTh1 & Standard LSTM & 4 & 9.92\,$\pm$\,0.71 & 2.028\,$\pm$\,0.089 & 5 \\
+ETTh1 & HC-LSTM & 4 & 44.52\,$\pm$\,18.73 & 4.323\,$\pm$\,0.983 & 5 \\
+ETTh1 & GRU & 4 & 10.08\,$\pm$\,0.22 & 2.014\,$\pm$\,0.046 & 5 \\
+ETTh1 & TCN & 4 & 10.16\,$\pm$\,0.44 & 2.097\,$\pm$\,0.109 & 5 \\
+ETTh1 & Ridge & 4 & 7.77\,$\pm$\,0.09 & 1.691\,$\pm$\,0.020 & 5 \\
+ETTh1 & DLinear & 4 & 8.35\,$\pm$\,0.06 & 1.718\,$\pm$\,0.011 & 5 \\
+ETTh1 & NLinear & 4 & 8.26\,$\pm$\,0.08 & 1.712\,$\pm$\,0.017 & 5 \\
+ETTh1 & mHC-LSTM (ours) & 8 & 10.26\,$\pm$\,0.56 & 1.995\,$\pm$\,0.129 & 5 \\
+ETTh1 & Standard LSTM & 8 & 11.79\,$\pm$\,3.06 & 2.254\,$\pm$\,0.351 & 5 \\
+ETTh1 & HC-LSTM & 8 & 8605623.25\,$\pm$\,3713064.63 & 1900.638\,$\pm$\,334.541 & 5 \\
+ETTh1 & GRU & 8 & 10.74\,$\pm$\,0.36 & 2.048\,$\pm$\,0.049 & 5 \\
+ETTh1 & TCN & 8 & 10.57\,$\pm$\,1.17 & 2.153\,$\pm$\,0.110 & 5 \\
+ETTh1 & mHC-LSTM (ours) & 16 & 10.65\,$\pm$\,0.66 & 2.058\,$\pm$\,0.108 & 5 \\
+ETTh1 & Standard LSTM & 16 & 12.88\,$\pm$\,2.60 & 2.378\,$\pm$\,0.292 & 5 \\
+ETTh1 & GRU & 16 & 10.67\,$\pm$\,0.48 & 2.116\,$\pm$\,0.055 & 5 \\
+ETTh1 & TCN & 16 & 34.84\,$\pm$\,4.88 & 4.168\,$\pm$\,0.369 & 5 \\
+\midrule
+ETTm1 & mHC-LSTM (ours) & 32 & 9.13\,$\pm$\,0.40 & 1.778\,$\pm$\,0.037 & 5 \\
+ETTm1 & Standard LSTM & 32 & 37.57\,$\pm$\,0.05 & 4.322\,$\pm$\,0.005 & 4 \\
+\bottomrule
+\end{tabular}
+\end{table*}

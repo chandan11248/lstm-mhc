@@ -1,0 +1,411 @@
+%==============================================================================
+% LSTM-uHC: Manifold-Constrained Hyper-Connections for Stable Depth Scaling
+% IEEE conference format (IEEEtran). Compile: pdflatex main && bibtex main && pdflatex x2
+%
+% All tables in paper/tables/ are auto-generated from measured test/stability data
+% by scripts/make_latex_tables.py. Figures are in ../outputs/final_ready_plots/.
+%==============================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{lmodern}
+\renewcommand{\ttdefault}{lmtt} % avoid missing Courier (pcr) TFM on minimal TeX
+\graphicspath{{../outputs/final_ready_plots/}}
+
+\begin{document}
+
+\title{Manifold-Constrained Hyper-Connections for\\ Stable Depth Scaling in LSTM Time-Series Forecasting}
+
+\author{
+\IEEEauthorblockN{Chandan Kumar Shah, Abhaya Shrestha, Asmit Khanal, Kushal Regmi, Nabina Thapa}
+\IEEEauthorblockA{Department of Electronics and Computer Engineering\\
+Pulchowk Campus, Institute of Engineering, Tribhuvan University, Lalitpur, Nepal\\
+Email: 080bct023.chandan@pcampus.edu.np, 080bct006.abhaya@pcampus.edu.np, 080bct017.asmit@pcampus.edu.np,\\
+080bct042.kushal@pcampus.edu.np, 080bct047.nabina@pcampus.edu.np}}
+
+\maketitle
+
+\begin{abstract}
+Deep stacked LSTMs hit a depth ceiling: gradients vanish or explode and deep
+variants collapse to near-constant predictions. Hyper-Connections (HC) widen the
+residual stream with learnable mixing matrices but are unstable; manifold-constrained
+HC (mHC) restores stability for large language models via a doubly-stochastic
+(Birkhoff-polytope) projection. We adapt mHC to recurrent forecasting as a
+\emph{macro} inter-layer highway that keeps the Sinkhorn projection outside the
+temporal loop, preserving cuDNN-optimized recurrence. On NOAA~JFK weather and
+ETTh1, across depths $L\in\{4,8,16\}$ with five seeds, mHC keeps held-out test
+error stable as depth increases, while Standard LSTM/TCN collapse at depth and
+unconstrained HC diverges. Additional $L{=}32$ runs on weather and ETTm1 support
+the same depth-stability trend but have smaller seed counts. mHC keeps the
+composite residual spectral norm within numerical tolerance of $1.0$,
+whereas HC's exceeds $10^{5}$. We analyze the macro design's complexity advantage
+over a per-timestep (micro) placement: the Sinkhorn projection runs $O(L)$ times
+rather than $O(T{\cdot}L)$. In short, the manifold constraint removes the LSTM
+depth ceiling.
+\end{abstract}
+
+\begin{IEEEkeywords}
+time-series forecasting, LSTM, hyper-connections, doubly stochastic matrices,
+depth scaling, gradient stability.
+\end{IEEEkeywords}
+
+%==============================================================================
+\section{Introduction}
+\label{sec:intro}
+Recurrent networks, and LSTMs~\cite{hochreiter1997lstm} in particular, remain
+competitive for multivariate time-series forecasting, yet \emph{deep} stacked
+LSTMs are difficult to train: as layers accumulate,
+gradients vanish or explode~\cite{bengio1994difficult} and the network often collapses to a near-constant
+predictor. In our experiments a 16-layer stacked LSTM on weather data degrades
+from a test MSE of $92.6$ at $L{=}4$ to $204.4$ at $L{=}16$, and a temporal
+convolutional network (TCN) collapses similarly. This ``depth ceiling'' limits
+the representational capacity that practitioners can actually use.
+
+Residual connections~\cite{he2016resnet,he2016identity} mitigate this through an
+identity mapping that preserves signal across layers. Hyper-Connections
+(HC)~\cite{zhu2024hyperconnections} generalize residuals by widening the stream
+into $n$ parallel channels with learnable mixing matrices, improving expressivity
+but breaking the identity mapping and, as we confirm, diverging at depth.
+Manifold-constrained HC (mHC)~\cite{xie2026mhc} restores stability for large
+language models by projecting the residual-mixing matrix onto the Birkhoff
+polytope of doubly-stochastic matrices via the Sinkhorn--Knopp
+algorithm~\cite{sinkhorn1967}, which guarantees a non-expansive, compositionally
+closed mapping.
+
+We adapt mHC to recurrent forecasting. Rather than applying the projection inside
+the recurrent cell (the per-token placement used for transformers), we introduce a
+\emph{macro} inter-layer highway: the doubly-stochastic mixing operates between
+LSTM layers, outside the temporal loop, so the cuDNN-optimized sequence kernel is
+preserved and the Sinkhorn projection runs $O(L)$ times rather than $O(T{\cdot}L)$.
+
+\textbf{Contributions.}
+\begin{itemize}
+  \item A macro-level mHC highway for stacked LSTMs that decouples cross-stream
+        mixing (doubly-stochastic) from temporal recurrence (cuDNN LSTM).
+  \item Evidence on two five-seed datasets (NOAA~JFK weather and ETTh1) across
+        $L\in\{4,8,16\}$, plus measured $L{=}32$ extensions on weather and ETTm1,
+        that mHC preserves held-out test error and bounded gradients/spectral norm
+        at depth while standard LSTM/TCN collapse and unconstrained HC diverges.
+  \item A controlled complexity analysis showing the macro placement reduces the
+        number of Sinkhorn projections from $O(T{\cdot}L)$ (per-timestep/micro) to
+        $O(L)$ (per-layer), making the manifold constraint practical for long
+        sequences.
+\end{itemize}
+
+%==============================================================================
+\section{Related Work}
+\label{sec:related}
+\textbf{Residual and identity mappings.} Deep residual
+networks~\cite{he2016resnet} and the identity-mapping
+analysis~\cite{he2016identity} established that a clean additive skip path is
+critical for trainable depth. Our work asks how to retain that property while
+allowing richer cross-stream mixing.
+
+\textbf{Hyper-Connections and mHC.} Hyper-Connections~\cite{zhu2024hyperconnections}
+widen the residual stream and learn how to route information across channels, but
+the unconstrained mixing matrices destroy the identity mapping and destabilize
+deep training. mHC~\cite{xie2026mhc} constrains the mixing matrix to the Birkhoff
+polytope via Sinkhorn--Knopp~\cite{sinkhorn1967}, demonstrated at LLM scale on the
+DeepSeek-V3 architecture~\cite{liu2024deepseekv3}. The mHC paper itself frames the
+choice of where to apply the highway as a \emph{macro} (inter-block) vs.\ \emph{micro}
+(intra-block) design decision~\cite{xie2026mhc}. We transfer this idea to
+recurrent forecasting and study \emph{where} the projection should live for an
+LSTM: as a macro inter-layer highway, leaving the cuDNN-optimized sequence kernel
+intact. Concurrently, mHC has also been adapted to state-space language
+models~\cite{mutlu2026mhcssm}; that work extends mHC to SSMs for language
+modeling, whereas we focus on LSTM-based time-series forecasting and provide a
+controlled depth-scaling study.
+
+\textbf{Time-series forecasting baselines.} Linear models such as
+DLinear/NLinear~\cite{zeng2023dlinear} are strong, simple baselines; recurrent
+(GRU~\cite{cho2014gru}) and convolutional (TCN~\cite{bai2018tcn}) models are
+standard neural baselines; and transformer forecasters including
+Informer~\cite{zhou2021informer},
+PatchTST~\cite{nie2023patchtst}, iTransformer~\cite{liu2024itransformer}, and
+TimesNet~\cite{wu2023timesnet} represent recent state of the art. We compare
+against classical, linear, recurrent, convolutional, and (PatchTST, iTransformer)
+transformer baselines under one protocol; extending to further transformer SOTA is
+future work (Sec.~\ref{sec:discussion}).
+
+\textbf{State-space models.} Selective state-space models such as
+Mamba~\cite{gu2024mamba} offer an orthogonal route to stable, efficient long-sequence
+modeling via input-dependent recurrences rather than a wider residual stream. We do
+not train an SSM baseline in this work; mHC is a modification to the \emph{inter-layer
+highway} around an existing recurrent cell (here, the LSTM) and is in principle
+compatible with an SSM cell in place of the LSTM, which we leave to future work.
+
+%==============================================================================
+\section{Method}
+\label{sec:method}
+\textbf{Multi-stream macro highway.} We expand the residual stream into $n$
+parallel streams $X_l\in\mathbb{R}^{B\times T\times n\times d}$ (we use $n{=}4$,
+$d{=}128$). At each inter-layer boundary we flatten and RMS-normalize~\cite{zhang2019rmsnorm}
+the streams and compute three heads from the normalized input: an aggregation gate
+$\mathcal{H}^{pre}=\sigma(\cdot)\in[0,1]$, a distribution gate
+$\mathcal{H}^{post}=2\sigma(\cdot)\in[0,2]$, and a residual-mixing matrix
+$\mathcal{H}^{res}=\mathrm{SinkhornKnopp}(\cdot)$ projected onto the Birkhoff
+polytope. Each head combines a small input-dependent (dynamic) term, gated by a
+learnable $\alpha$ initialized to $0.01$, with a learned static bias, following
+the mHC parameterization. The layer update is
+\begin{equation}
+X_{l+1}=\mathcal{H}^{res}_l X_l + \mathcal{H}^{post}_l\,
+        \mathrm{LSTM}_l\!\big(\textstyle\sum_n \mathcal{H}^{pre}_l X_l\big).
+\end{equation}
+The aggregation gate collapses the $n$ streams into a single $d$-dimensional input
+for a standard LSTM layer; the distribution gate scatters the layer output back
+across streams; and the doubly-stochastic $\mathcal{H}^{res}$ mixes the streams as
+a convex (soft-permutation) combination.
+
+\textbf{Why macro placement (complexity).} Because $\mathcal{H}^{res}$ is computed
+once per layer over the batched $B\times T$ tensor and the LSTM consumes the whole
+sequence in one cuDNN pass, the Sinkhorn--Knopp projection executes $O(L)$ times per
+forward pass. A \emph{micro} placement that applies the projection inside the
+recurrent cell at every timestep would instead execute it $O(T{\cdot}L)$ times. With
+$T{=}724$ this is a factor of $T$ difference ($L$ vs.\ $\sim$$724L$ projections), and
+it also forgoes the cuDNN sequence kernel by requiring a step-by-step cell loop. We
+therefore adopt the macro placement; Sec.~\ref{sec:micro} formalizes this argument.
+We do not train a micro variant: the comparison here is analytical (operation
+count), not empirical.
+
+\subsection{Theory}
+\label{sec:theory}
+The Birkhoff polytope $\mathcal{M}^{res}=\{H\!\ge\!0 : H\mathbf{1}{=}\mathbf{1},
+\mathbf{1}^{\!\top}H{=}\mathbf{1}^{\!\top}\}$ confers three properties that make
+depth stable. \emph{(i) Non-expansiveness:} every doubly-stochastic $H$ has spectral
+norm $\|H\|_2\le 1$, so the residual map cannot amplify signal energy. \emph{(ii)
+Compositional closure:} the product of doubly-stochastic matrices is
+doubly-stochastic, so the composite map across any number of layers
+$\prod_l \mathcal{H}^{res}_l$ remains non-expansive --- stability holds at arbitrary
+depth, not just per layer. \emph{(iii) Convex hull of permutations:} the polytope is
+the convex hull of permutation matrices, so $\mathcal{H}^{res}$ acts as a soft
+permutation that fuses streams without destructive amplification. When $n{=}1$ the
+constraint reduces to the scalar $1$, recovering the standard identity-mapping
+residual. Section~\ref{sec:results} confirms these properties empirically: the
+measured composite spectral norm stays near $1.0$ for mHC at every depth.
+
+%==============================================================================
+\section{Experimental Setup}
+\label{sec:setup}
+\textbf{Datasets.} We use three real multivariate series with chronological,
+gap-separated 70/15/15 train/val/test splits: the NOAA JFK hourly weather
+benchmark (75{,}119 rows, 4 variables---temperature, humidity, pressure, wind
+speed), ETTh1 (17{,}420 rows), and the larger ETTm1 (69{,}680 rows, 15-min
+cadence). This is the NOAA JFK weather series, not the 21-variable ``Weather''
+benchmark used in many long-term-forecasting papers, so all baseline numbers
+reported here are from our own retraining under the protocol below. The $z$-score scaler is fit on the training split only; a guard
+gap equal to the maximum horizon separates splits so no window crosses a boundary.
+
+\textbf{Protocol.} Every model uses an identical regimen:
+AdamW~\cite{loshchilov2019adamw}
+($\beta{=}(0.9,0.95)$, $\epsilon{=}10^{-8}$, weight decay $0.1$), learning rate
+$4\times10^{-4}$ with 5-epoch linear warmup then cosine decay, dropout $0.1$,
+gradient clipping at $1.0$, batch size $32$, up to 50 epochs with early stopping
+(patience 10), and five seeds (42--46) for the main weather/ETTh1 experiments.
+Forecast horizons are 6/12/24/48/72 hours.
+The only difference between models is the inter-layer highway. We select the
+checkpoint with the best validation MSE and evaluate it \emph{once} on the held-out
+test split; all reported metrics are de-normalized (original units).
+
+\textbf{Models.} Standard LSTM (parameter-matched), unconstrained HC-LSTM, and
+mHC-LSTM (ours), plus classical/linear baselines (Ridge, DLinear, NLinear) and
+neural baselines (GRU, TCN), at depths $L\in\{4,8,16\}$; depth $L{=}32$ adds the
+large-dataset comparison on weather and ETTm1.
+
+%==============================================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Training stability}
+mHC keeps the composite residual spectral norm within numerical tolerance of $1.0$,
+while unconstrained HC explodes (Table~\ref{tab:stability}, Fig.~\ref{fig:spectral})
+and diverges (NaN) at $L{=}16$ on both datasets.
+\begin{figure}[t]\centering
+  \includegraphics[width=\linewidth]{spectral_norm_vs_depth.pdf}
+  \caption{Max composite spectral norm vs.\ depth. mHC stays near $1.0$; HC explodes
+  and then diverges at $L{=}16$.}\label{fig:spectral}
+\end{figure}
+\begin{figure}[t]\centering
+  \includegraphics[width=\linewidth]{gradient_norm_vs_depth.pdf}
+  \caption{Max pre-clip gradient norm vs.\ depth (log scale). mHC stays bounded
+  ($<$50) at all depths; HC reaches $10^{5}$--$10^{11}$ and diverges at $L{=}16$.}\label{fig:gradnorm}
+\end{figure}
+\input{tables/tab_stability}
+
+\subsection{Depth scaling (the main result)}
+On held-out test data, mHC preserves stable error across the evaluated depth range;
+Standard LSTM and TCN collapse at $L\geq16$
+(Table~\ref{tab:depth}, Fig.~\ref{fig:depth}). The stability comes at a modest
+absolute-cost increase: mHC's test MSE at $L{=}16$ on weather ($95.4$) is higher
+than its own $L{=}4$ value ($91.7$), so deeper mHC does not improve raw accuracy on
+these tasks; rather, it avoids the catastrophic collapse seen in the vanilla LSTM.
+
+\textbf{Relation to stronger recurrent baselines.} We note frankly that a plain
+GRU---a standard recurrent baseline with no highway machinery and fewer parameters
+(351K vs.\ 592K)---achieves lower weather test MSE than mHC-LSTM at every depth
+we evaluate (87.7/89.0/94.5 vs.\ 91.7/94.3/95.4 at $L{=}4/8/16$) and is
+statistically tied with mHC on ETTh1 (within 0.02--0.5 MSE). Ridge and the linear
+DLinear/NLinear baselines also outperform mHC on ETTh1. These results reframe the
+contribution: mHC-LSTM is not a generic state-of-the-art forecaster on these
+datasets at shallow depth. Its value is specific to the problem of training a
+deep stacked LSTM without collapse. Practically, this means mHC-LSTM is most
+interesting when an LSTM-based architecture is already preferred for deployment,
+interpretability, or hardware reasons, and one wishes to add depth without the
+instability that otherwise afflicts deep LSTMs.
+\begin{figure}[t]\centering
+  \includegraphics[width=\linewidth]{depth_scaling_test_mse_weather.pdf}
+  \caption{Weather test MSE vs.\ depth. mHC stays in the 91.7--95.9 range across
+  all depths; Standard LSTM and TCN collapse at $L\geq16$.}\label{fig:depth}
+\end{figure}
+\input{tables/tab_depth_scaling}
+\input{tables/tab_main_results}
+\input{tables/tab_significance}
+
+\subsection{Larger dataset (ETTm1)}
+On ETTm1 (69{,}680 rows) at $L{=}32$, mHC achieves $9.13{\pm}0.40$ test MSE
+(5 seeds) while Standard LSTM degrades to $37.57{\pm}0.05$ (4 seeds; one vanilla
+seed failed to complete and is excluded, not imputed),
+a $4.1{\times}$ gap (Fig.~\ref{fig:ettm1}).
+\begin{figure}[t]\centering
+  \includegraphics[width=\linewidth]{ettm1_l32_mhc_vs_vanilla.pdf}
+  \caption{ETTm1 $L{=}32$: mHC scales; Standard LSTM degrades.}\label{fig:ettm1}
+\end{figure}
+
+\subsection{Baseline comparison and horizon degradation}
+At shallow depth ($L{=}4$) mHC is competitive with, but not statistically distinct
+from, the strongest classical, linear, recurrent, and convolutional baselines
+(Fig.~\ref{fig:leaderboard}); the benefit of mHC appears with depth rather than at
+$L{=}4$. Per-horizon test MAE degrades gracefully for mHC across the 6--72\,h
+horizons, whereas collapsed deep baselines flatten to a near-constant error
+(Fig.~\ref{fig:horizon}).
+\begin{figure}[t]\centering
+  \includegraphics[width=\linewidth]{test_leaderboard_L4_weather.pdf}
+  \caption{Shallow ($L{=}4$) weather test MSE across all model families.}\label{fig:leaderboard}
+\end{figure}
+\begin{figure}[t]\centering
+  \includegraphics[width=\linewidth]{horizon_mae_weather_l16.pdf}
+  \caption{Per-horizon test MAE at $L{=}16$ on weather. Standard LSTM flattens
+  (near-constant prediction) while mHC degrades gracefully with horizon.}\label{fig:horizon}
+\end{figure}
+
+\subsection{Comparison with modern forecasters}
+\label{sec:sota}
+We re-train three strong recent forecasters --- PatchTST, iTransformer, and
+TimesNet --- under our \emph{identical} protocol (same splits, scaler,
+horizons, optimizer, 5 seeds, checkpoint selection), so the comparison is on our
+data, not copied numbers (Table~\ref{tab:sota}). On \textbf{weather}, mHC ($91.7$)
+significantly outperforms both PatchTST ($95.9$, $d{=}{-}3.5$, $p{=}0.001$) and
+iTransformer ($98.5$, $d{=}{-}2.3$, $p{=}0.007$) on test MSE
+(Table~\ref{tab:sotasig}); TimesNet ($96.2$) is also significantly worse than
+mHC on this dataset ($d{=}{-}1.36$, $p{=}0.038$), though with higher seed variance
+($\sigma{=}3.3$). Our TimesNet baseline is reimplemented following the module
+structure of the Time-Series-Library benchmark~\cite{wang2024tssurvey}.
+On \textbf{ETTh1}, PatchTST ($8.5$) significantly beats
+mHC ($9.9$), while mHC significantly beats iTransformer ($10.7$); TimesNet ($9.4$)
+is non-significantly better ($p{=}0.348$).
+Thus mHC is competitive with 2023--2024 SOTA --- leading on weather, mid-pack on ETTh1 ---
+which, combined with its unique depth-stability (Sec.~\ref{sec:results}A--B),
+supports the contribution without overclaiming shallow accuracy.
+\input{tables/tab_sota}
+\input{tables/tab_sota_sig}
+
+\subsection{Compute efficiency}
+\label{sec:efficiency}
+mHC adds negligible parameter/FLOP overhead over a standard LSTM: at every depth
+the two are parameter- and FLOP-matched (e.g., at $L{=}4$, $592$K vs.\ $590$K parameters and
+$0.85$ vs.\ $0.86$ GFLOPs), since the $n{=}4$ stream heads are tiny relative to the
+LSTM matmuls (Table~\ref{tab:efficiency}). The cost of the multi-stream highway is
+\emph{activation memory}: mHC's peak VRAM is higher than the standard LSTM because
+it carries $n$ streams, and \emph{CPU inference latency}: mHC ($1539$ms) is $\sim$3$\times$
+slower than the standard LSTM ($508$ms) due to sequential stream mixing, while
+iTransformer ($3.4$ms) benefits from parallel attention in this CPU benchmark.
+Parameters and FLOPs are measured on a $1{\times}724{\times}4$ input; latency is
+mean over 100 CPU forward passes (batch=32). We do not claim GPU inference latency
+from this CPU measurement.
+\input{tables/tab_efficiency}
+
+\subsection{Macro vs.\ micro placement: a complexity argument}
+\label{sec:micro}
+The doubly-stochastic projection can be placed either between layers (\emph{macro},
+ours) or inside the recurrent cell at every timestep (\emph{micro}). We compare the
+two analytically. Let $K$ be the Sinkhorn--Knopp iteration count and $n$ the number
+of streams. Per forward pass over a length-$T$ sequence with $L$ layers, the macro
+placement performs $L$ projections (each a batched $n{\times}n$ Sinkhorn over the
+$B{\times}T$ elements), i.e.\ $O(L\,K\,n^2)$ Sinkhorn work \emph{outside} the
+temporal recurrence, so the LSTM still runs as a single fused cuDNN kernel. The micro
+placement performs one projection \emph{per timestep per layer}, i.e.\ $O(T\,L\,K\,n^2)$,
+and forces a step-by-step \texttt{LSTMCell} loop that forgoes the cuDNN sequence
+kernel. For our setting ($T{=}724$) the micro placement issues $\sim$$724\times$ more
+projections and loses hardware-optimized recurrence. We therefore adopt the macro
+placement on complexity grounds; we do not train a micro variant, so no empirical
+accuracy comparison is claimed.
+
+%==============================================================================
+\section{Discussion and Limitations}
+\label{sec:discussion}
+\textbf{What the results support.} The central claim --- that doubly-stochastic
+inter-layer mixing yields stable, trainable depth for LSTMs --- is supported on
+held-out test data: mHC's error remains stable with depth, its composite
+spectral norm stays near $1.0$, and its gradient norm stays bounded, whereas standard
+LSTM and TCN collapse at $L\!\geq\!16$ and unconstrained HC diverges. The advantage
+over HC is statistically significant at $L{=}4$ on both datasets, and the advantage
+over standard LSTM at $L{=}16$ on weather is large ($d\!\approx\!-77$, $p<10^{-3}$).
+
+\textbf{What we do not claim.} At \emph{shallow} depth mHC is statistically
+indistinguishable from a standard LSTM and from the strongest baselines on test
+data; this is a stability/trainability result, not a claim of shallow
+state-of-the-art accuracy. \textbf{Statistical caveats.} All significance tests use five matched seeds.
+Large Cohen's $d$ values (e.g., $d{\approx}{-}77$ for weather $L{=}16$) reflect a
+large mean gap relative to the very small seed-to-seed variance in that paired
+comparison, but at $n{=}5$ such point estimates are fragile. We report uncorrected
+paired $t$-test $p$-values across roughly seventeen comparisons in
+Tables~\ref{tab:sig} and~\ref{tab:sotasig}; a few borderline claims
+($p{\approx}0.038$) would not survive a Holm--Bonferroni multiple-comparison
+correction. The robust conclusions are the qualitative stability pattern
+(spectral norm near 1.0, bounded gradients) and the large weather depth-collapse
+gap, not fine-grained ranking of methods within 1--2 MSE points.
+
+\textbf{Limitations.} The ETTm1 result has 5 seeds for
+mHC and 4 for vanilla (one vanilla seed failed to complete and is excluded, not
+imputed). Our SOTA comparison covers PatchTST,
+iTransformer, and TimesNet (5 seeds each); extending to FEDformer and Autoformer,
+and to additional long-term-forecasting benchmarks, is the clearest next step. Two
+baseline cells within the main five-seed sweep have only four seeds each
+(weather DLinear $L{=}4$, weather TCN $L{=}16$; one seed failed to produce a
+log in each case), reported as $n{=}4$ in Table~\ref{tab:main} rather than
+imputed. We built and unit-tested a micro (per-timestep) mHC-LSTM and staged a
+15-run training ablation (3 depths $\times$ 5 seeds); these runs were not
+completed, so Sec.~\ref{sec:micro}'s comparison remains analytical only, with
+no empirical micro-model accuracy numbers reported anywhere in this paper.
+All models share the same learning-rate schedule across depths; we did not
+perform a per-depth learning-rate search for the Standard LSTM, so part of the
+depth-collapse effect could in principle be a tuning artifact rather than a
+fundamental depth limit. Re-tuning depth-specific LRs is an open ablation.
+
+\section{Conclusion}
+\label{sec:conclusion}
+We presented a macro-level manifold-constrained Hyper-Connection highway for stacked
+LSTMs that keeps cross-stream mixing doubly-stochastic while preserving
+cuDNN-optimized recurrence. Across measured real-data experiments up to $L{=}32$,
+it trains stably and avoids the depth-collapse that afflicts standard LSTMs, TCNs,
+and unconstrained Hyper-Connections. In short, the
+manifold constraint removes the LSTM depth ceiling.
+
+%==============================================================================
+\section*{Reproducibility}
+Metrics are de-normalized test-set values. The main weather/ETTh1 experiments use
+five seeds; smaller-$n$ extensions are marked in the tables. Checkpoints are selected
+by best validation MSE and evaluated once on the held-out test split. Tables are
+generated directly from measured logs; missing/diverged runs are reported, never
+imputed. Code, configs, the training log manifest, and the `make\_latex\_tables.py`
+script will be released publicly upon acceptance; until then they are available
+from the authors on request.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

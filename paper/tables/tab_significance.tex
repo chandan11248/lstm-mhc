@@ -1,0 +1,24 @@
+\begin{table*}[t]
+\centering
+\caption{Paired significance on \textbf{test} MSE for matched five-seed comparisons: Cohen's $d$ and two-sided $t$-test $p$. Negative diff favors mHC.}
+\label{tab:sig}
+\footnotesize
+\begin{tabular}{llrrrc}
+\toprule
+Dataset & Comparison & $L$ & $\Delta$MSE & Cohen's $d$ & $p$ \\
+\midrule
+ETTh1 & mHC vs HC & 4 & -34.60 & -1.84 & 0.015$^{*}$ \\
+ETTh1 & mHC vs Vanilla & 4 & -0.01 & -0.01 & 0.989 \\
+ETTh1 & mHC vs HC & 8 & -8605612.99 & -2.32 & 0.007$^{*}$ \\
+ETTh1 & mHC vs Vanilla & 8 & -1.53 & -0.51 & 0.314 \\
+ETTh1 & mHC vs Vanilla & 16 & -2.23 & -0.70 & 0.192 \\
+Weather & mHC vs HC & 4 & -10.12 & -1.74 & 0.018$^{*}$ \\
+Weather & mHC vs Vanilla & 4 & -0.94 & -0.51 & 0.318 \\
+Weather & mHC vs HC & 8 & +0.29 & 0.08 & 0.860 \\
+Weather & mHC vs Vanilla & 8 & +1.17 & 0.41 & 0.406 \\
+Weather & mHC vs Vanilla & 16 & -109.01 & -76.72 & 0.000$^{*}$ \\
+\bottomrule
+\end{tabular}
+\\[2pt]
+\footnotesize $^{*}$ significant at $p<0.05$.
+\end{table*}

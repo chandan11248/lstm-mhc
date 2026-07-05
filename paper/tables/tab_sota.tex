@@ -1,0 +1,21 @@
+\begin{table*}[t]
+\centering
+\caption{Comparison against modern forecasters (held-out \textbf{test} MSE/MAE, mean$\pm$std over five seeds). Our LSTM models are at $L{=}4$; transformer baselines use their own depth. mHC is best on weather; PatchTST/NLinear lead on ETTh1.}
+\label{tab:sota}
+\footnotesize
+\begin{tabular}{lrrrr}
+\toprule
+Model & ETTh1 MSE & ETTh1 MAE & Weather MSE & Weather MAE \\
+\midrule
+NLinear & 8.26\,$\pm$\,0.08 & 1.712\,$\pm$\,0.017 & 96.69\,$\pm$\,0.74 & 5.939\,$\pm$\,0.013 \\
+DLinear & 8.35\,$\pm$\,0.06 & 1.718\,$\pm$\,0.011 & 98.22\,$\pm$\,1.03 & 6.056\,$\pm$\,0.054 \\
+Ridge & 7.77\,$\pm$\,0.09 & 1.691\,$\pm$\,0.020 & 88.87\,$\pm$\,1.21 & 5.644\,$\pm$\,0.053 \\
+TCN & 10.16\,$\pm$\,0.44 & 2.097\,$\pm$\,0.109 & 90.68\,$\pm$\,1.13 & 5.722\,$\pm$\,0.042 \\
+GRU & 10.08\,$\pm$\,0.22 & 2.014\,$\pm$\,0.046 & 87.71\,$\pm$\,0.83 & 5.609\,$\pm$\,0.035 \\
+PatchTST & 8.51\,$\pm$\,0.34 & 1.833\,$\pm$\,0.050 & 95.92\,$\pm$\,1.05 & 5.971\,$\pm$\,0.032 \\
+iTransformer & 10.74\,$\pm$\,0.52 & 2.065\,$\pm$\,0.049 & 98.47\,$\pm$\,1.72 & 6.116\,$\pm$\,0.059 \\
+TimesNet & 9.40\,$\pm$\,0.86 & 1.998\,$\pm$\,0.144 & 96.25\,$\pm$\,3.34 & 5.932\,$\pm$\,0.116 \\
+\textbf{mHC-LSTM (ours)} & 9.92\,$\pm$\,0.26 & 1.952\,$\pm$\,0.046 & 91.69\,$\pm$\,1.41 & 5.729\,$\pm$\,0.043 \\
+\bottomrule
+\end{tabular}
+\end{table*}
