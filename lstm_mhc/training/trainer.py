@@ -37,6 +37,48 @@ from .metrics_logger import MetricsLogger
 
 
 # ------------------------------------------------------------------
+# Optimizer parameter-group split
+# ------------------------------------------------------------------
+# Standard practice: biases, norm scales, and scalar gating parameters
+# (alpha_pre/post/res) should NOT be weight-decayed.  Without this split,
+# AdamW's decoupled weight decay pulls the mHC dynamic-routing scalars
+# toward 0, suppressing the input-dependent heads.
+_NO_DECAY_PATTERNS = (
+    "alpha_",
+    "b_pre",
+    "b_post",
+    "b_res",
+    "norm.weight",
+    "rmsnorm.weight",
+    ".bias",
+)
+
+
+def split_param_groups(
+    model: nn.Module,
+    weight_decay: float,
+    no_decay_wd: float = 0.0,
+) -> List[Dict[str, Any]]:
+    """Split model parameters into (decay, no_decay) AdamW parameter groups."""
+    decay_params, no_decay_params = [], []
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+        if any(p in name for p in _NO_DECAY_PATTERNS):
+            no_decay_params.append(param)
+        else:
+            decay_params.append(param)
+    if not decay_params:
+        decay_params = no_decay_params
+    if not no_decay_params:
+        no_decay_params = decay_params
+    return [
+        {"params": decay_params, "weight_decay": weight_decay},
+        {"params": no_decay_params, "weight_decay": no_decay_wd},
+    ]
+
+
+# ------------------------------------------------------------------
 # Checkpoint helpers (AGENTS.md §4: the single source of truth for what to save)
 # ------------------------------------------------------------------
 def _checkpoint_state(
@@ -277,12 +319,15 @@ def run_training(
         )
 
     # Optimizer: AdamW matching mHC paper settings (or config overrides).
+    # Parameters are split into a decay group (LSTM/Linear weights) and a
+    # no-decay group (biases, RMSNorm scales, alpha scalars, b_* biases) so
+    # that AdamW's decoupled weight decay does not pull mHC's dynamic-routing
+    # scalars (alpha_pre/post/res) toward 0 and suppress the heads.
     optimizer = torch.optim.AdamW(
-        model.parameters(),
+        split_param_groups(model, config.weight_decay, 0.0),
         lr=config.learning_rate,
         betas=config.adamw_betas,
         eps=config.adamw_eps,
-        weight_decay=config.weight_decay,
     )
 
     # LR scheduler: linear warmup + cosine decay to ``min_lr_ratio``.
